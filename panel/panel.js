@@ -141,17 +141,18 @@ clear.addEventListener('click', async function() {
     key_container.innerHTML = "";
 });
 
-async function createCommand(json, key_string) {
+async function createCommand(json, key_string, isNoDrm = false) {
     const metadata = JSON.parse(json);
     const headerString = Object.entries(metadata.headers).map(([key, value]) => `-H "${key}: ${value.replace(/"/g, "'")}"`).join(' ');
     const executableName = await SettingsManager.getExecutableName();
     const useShaka = await SettingsManager.getUseShakaPackager();
     const additionalArgs = await SettingsManager.getAdditionalArguments();
-    return `${executableName} "${metadata.url}" ${headerString} ${key_string} ${additionalArgs}`;
+    const shakaFlag = (useShaka && !isNoDrm) ? "--use-shaka-packager " : "";
+    return `${executableName} "${metadata.url}" ${headerString} ${key_string} ${shakaFlag}${additionalArgs}`;
 }
 
 async function appendLog(result) {
-    const key_string = result.keys ? result.keys.map(key => `--key ${key.kid}:${key.k}`).join(' ') : '';
+    const key_string = result.keys ? result.keys.map(key => `--key ${key.kid}:${key.k}`).join(' ') : 'No keys (non-DRM)';
     const date = new Date(result.timestamp * 1000);
     const date_string = date.toLocaleString();
 
@@ -191,13 +192,13 @@ async function appendLog(result) {
 
         const select = logContainer.querySelector("#manifest");
         select.addEventListener('change', async () => {
-            command.value = await createCommand(select.value, key_string);
+            command.value = await createCommand(select.value, key_string, result.type === "NO-DRM");
         });
         result.manifests.forEach((manifest) => {
             const option = new Option(`[${manifest.type}] ${manifest.url}`, JSON.stringify(manifest));
             select.add(option);
         });
-        command.value = await createCommand(select.value, key_string);
+        command.value = await createCommand(select.value, key_string, result.type === "NO-DRM");
 
         const manifest_copy = logContainer.querySelector('.manifest-copy');
         manifest_copy.addEventListener('click', () => {
